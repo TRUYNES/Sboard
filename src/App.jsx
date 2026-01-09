@@ -37,7 +37,6 @@ function App() {
   );
 
   useEffect(() => {
-    // Load config or local storage
     const loadData = async () => {
       try {
         const storedOrder = localStorage.getItem('dashboard_services');
@@ -47,7 +46,6 @@ function App() {
         } else {
           const res = await fetch('/config.json');
           const data = await res.json();
-          // Add unique IDs if not present for DnD
           const dataWithIds = data.map((item, index) => ({
             ...item,
             id: item.id || `service-${index}`
@@ -63,7 +61,6 @@ function App() {
     loadData();
   }, []);
 
-  // Save to local storage whenever data changes
   useEffect(() => {
     if (servicesData.length > 0) {
       localStorage.setItem('dashboard_services', JSON.stringify(servicesData));
@@ -76,7 +73,6 @@ function App() {
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
-
     if (active.id !== over.id) {
       setServicesData((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
@@ -84,7 +80,6 @@ function App() {
         return arrayMove(items, oldIndex, newIndex);
       });
     }
-
     setActiveId(null);
   };
 
@@ -109,7 +104,6 @@ function App() {
     const serviceToAdd = {
       ...newService,
       id: newId,
-      // Auto-set service URL if empty based on hostname logic (simple approximation)
       service: newService.service || `http://${newService.hostname}`
     };
 
@@ -145,37 +139,7 @@ function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Edit Mode Toggle */}
-          <button
-            onClick={() => setIsEditMode(!isEditMode)}
-            className={`action-btn ${isEditMode ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50' : 'bg-white/5 border-white/10'}`}
-            title={isEditMode ? "Done Editing" : "Edit Dashboard"}
-            style={{ width: 'auto', padding: '0 1rem', gap: '0.5rem' }}
-          >
-            {isEditMode ? <Check size={18} /> : <Edit2 size={18} />}
-            {isEditMode ? 'Done' : 'Edit'}
-          </button>
-
-          {isEditMode && (
-            <>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="action-btn bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-                title="Add Service"
-              >
-                <Plus size={20} />
-              </button>
-              <button
-                onClick={handleReset}
-                className="action-btn bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
-                title="Reset to Default"
-              >
-                <RotateCcw size={20} />
-              </button>
-            </>
-          )}
-
+        <div className="header-controls">
           {/* Search Bar */}
           <div className="search-container">
             <Search className="search-icon" size={20} />
@@ -186,6 +150,37 @@ function App() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+
+          {/* Edit Controls */}
+          <div className="edit-actions">
+            {isEditMode && (
+              <>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="action-btn btn-add"
+                  title="Add Service"
+                >
+                  <Plus size={20} />
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="action-btn btn-reset"
+                  title="Reset to Default"
+                >
+                  <RotateCcw size={20} />
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => setIsEditMode(!isEditMode)}
+              className={`action-btn btn-edit ${isEditMode ? 'active' : ''}`}
+              title={isEditMode ? "Done Editing" : "Edit Dashboard"}
+            >
+              {isEditMode ? <Check size={18} /> : <Edit2 size={18} />}
+              {isEditMode ? 'Done' : 'Edit'}
+            </button>
           </div>
         </div>
       </div>
@@ -205,18 +200,25 @@ function App() {
           <div className="service-grid">
             {filteredServices.map((service) => (
               <SortableItem key={service.id} id={service.id} disabled={!isEditMode}>
-                <div className="relative group">
+                <div className="service-card-wrapper group">
                   <ServiceCard service={service} />
+
+                  {/* Delete Overlay */}
                   {isEditMode && (
-                    <button
-                      onClick={() => handleDelete(service.id)}
-                      className="absolute -top-2 -right-2 p-1.5 bg-red-500 rounded-full text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="delete-overlay">
+                      <button
+                        onMouseDown={(e) => {
+                          e.stopPropagation(); // Prevent drag start
+                          handleDelete(service.id);
+                        }}
+                        className="btn-delete"
+                        title="Delete Service"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                      <span className="delete-text">Drag or Delete</span>
+                    </div>
                   )}
-                  {isEditMode && <div className="absolute inset-0 cursor-move" style={{ zIndex: -1 }} />}
                 </div>
               </SortableItem>
             ))}
@@ -225,7 +227,7 @@ function App() {
 
         <DragOverlay>
           {activeId ? (
-            <div style={{ opacity: 0.8 }}>
+            <div className="service-card" style={{ opacity: 0.9, cursor: 'grabbing' }}>
               <ServiceCard service={servicesData.find(s => s.id === activeId)} />
             </div>
           ) : null}
@@ -234,68 +236,84 @@ function App() {
 
       {/* Add Service Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1e293b] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white">Add New Service</h2>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-header">
+              <div className="modal-title">
+                <div style={{ padding: '0.4rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', color: '#34d399' }}>
+                  <Plus size={20} />
+                </div>
+                Add New Service
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="modal-close">
                 <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleAddService} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Name</label>
-                <input
-                  autoFocus
-                  type="text"
-                  required
-                  className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-sky-500"
-                  placeholder="e.g. Plex"
-                  value={newService.name}
-                  onChange={e => setNewService({ ...newService, name: e.target.value })}
-                />
+            <form onSubmit={handleAddService} className="modal-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Name</label>
+                  <input
+                    autoFocus
+                    type="text"
+                    required
+                    className="form-input"
+                    placeholder="e.g. Plex"
+                    value={newService.name}
+                    onChange={e => setNewService({ ...newService, name: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Hostname</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-input"
+                    placeholder="app.domain.com"
+                    value={newService.hostname}
+                    onChange={e => setNewService({ ...newService, hostname: e.target.value })}
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Hostname (External)</label>
+              <div className="form-group">
+                <label className="form-label">Internal URL (Optional)</label>
                 <input
                   type="text"
-                  required
-                  className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-sky-500"
-                  placeholder="e.g. plex.noktafikir.com"
-                  value={newService.hostname}
-                  onChange={e => setNewService({ ...newService, hostname: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Service URL (Internal)</label>
-                <input
-                  type="text"
-                  className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-sky-500"
-                  placeholder="e.g. http://192.168.1.58:32400"
+                  className="form-input"
+                  placeholder="http://192.168.1.XX:PORT"
                   value={newService.service}
                   onChange={e => setNewService({ ...newService, service: e.target.value })}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Icon URL</label>
-                <input
-                  type="text"
-                  className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-sky-500"
-                  placeholder="https://..."
-                  value={newService.icon}
-                  onChange={e => setNewService({ ...newService, icon: e.target.value })}
-                />
+              <div className="form-group">
+                <label className="form-label">Icon URL</label>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="https://..."
+                    value={newService.icon}
+                    onChange={e => setNewService({ ...newService, icon: e.target.value })}
+                    style={{ flex: 1 }}
+                  />
+                  <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {newService.icon ? (
+                      <img src={newService.icon} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain' }} onError={(e) => e.target.style.display = 'none'} />
+                    ) : (
+                      <LayoutGrid size={20} color="#64748b" />
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex gap-3 mt-4">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-medium transition-colors">
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowAddModal(false)} className="btn-cancel">
                   Cancel
                 </button>
-                <button type="submit" className="flex-1 py-3 px-4 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-medium transition-colors">
+                <button type="submit" className="btn-submit">
                   Add Service
                 </button>
               </div>
