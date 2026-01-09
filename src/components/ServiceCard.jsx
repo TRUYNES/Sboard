@@ -15,6 +15,9 @@ const ServiceCard = ({ service }) => {
   };
 
   const getExternalUrl = () => {
+    // If hostname already contains http/https, use it. Otherwise add https://
+    // Also handle paths like domain.com/path
+    if (service.hostname.startsWith('http')) return service.hostname;
     return `https://${service.hostname}`;
   };
 

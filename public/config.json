@@ -1,9 +1,9 @@
 [
     {
-        "hostname": "pi.noktafikir.com",
+        "hostname": "pi.noktafikir.com/admin/login",
         "service": "http://192.168.1.58:80",
         "name": "Pi Dashboard",
-        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/dashboard.png"
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/pihole.png"
     },
     {
         "hostname": "wssh.noktafikir.com",
@@ -22,12 +22,6 @@
         "service": "http://localhost:3000",
         "name": "SSH Web",
         "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/terminal.png"
-    },
-    {
-        "hostname": "hom.noktafikir.com",
-        "service": "http://localhost:3005",
-        "name": "Homarr",
-        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/homarr.png"
     },
     {
         "hostname": "not.noktafikir.com",
