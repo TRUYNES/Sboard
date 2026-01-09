@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  dashboard:
+    container_name: modern-dashboard
+    build: .
+    restart: unless-stopped
+    ports:
+      - "80:80" # Output port. Change the left side (80) if it conflicts with other services.
+    volumes:
+      - ./public/config.json:/usr/share/nginx/html/config.json:ro
+    networks:
+      - dashboard-net
+
+networks:
+  dashboard-net:
+    driver: bridge

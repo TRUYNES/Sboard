@@ -1,0 +1,128 @@
+[
+    {
+        "hostname": "pi.noktafikir.com",
+        "service": "http://192.168.1.58:80",
+        "name": "Pi Dashboard",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/dashboard.png"
+    },
+    {
+        "hostname": "wssh.noktafikir.com",
+        "service": "ssh://192.168.1.58:22",
+        "name": "Web SSH",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/terminal.png"
+    },
+    {
+        "hostname": "galeri.noktafikir.com",
+        "service": "http://localhost:2283",
+        "name": "Galeri",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/immich.png"
+    },
+    {
+        "hostname": "ssh.noktafikir.com",
+        "service": "http://localhost:3000",
+        "name": "SSH Web",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/terminal.png"
+    },
+    {
+        "hostname": "hom.noktafikir.com",
+        "service": "http://localhost:3005",
+        "name": "Homarr",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/homarr.png"
+    },
+    {
+        "hostname": "not.noktafikir.com",
+        "service": "http://localhost:3010",
+        "name": "Notes",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/paperless-ngx.png"
+    },
+    {
+        "hostname": "indir.noktafikir.com",
+        "service": "http://localhost:3033",
+        "name": "Indir",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/jdownloader.png"
+    },
+    {
+        "hostname": "net.noktafikir.com",
+        "service": "http://localhost:4000",
+        "name": "Network",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/wifi.png"
+    },
+    {
+        "hostname": "muzik.noktafikir.com",
+        "service": "http://localhost:4533",
+        "name": "Music",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/navidrome.png"
+    },
+    {
+        "hostname": "docker.noktafikir.com",
+        "service": "http://localhost:5001",
+        "name": "Docker Manager",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/portainer.png"
+    },
+    {
+        "hostname": "web.noktafikir.com",
+        "service": "http://localhost:5800",
+        "name": "Web Browser",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/firefox.png"
+    },
+    {
+        "hostname": "esp.noktafikir.com",
+        "service": "http://localhost:6052",
+        "name": "ESP Home",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/esphome.png"
+    },
+    {
+        "hostname": "zigb.noktafikir.com",
+        "service": "http://localhost:8080",
+        "name": "Zigbee",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/zigbee2mqtt.png"
+    },
+    {
+        "hostname": "cloud.noktafikir.com",
+        "service": "http://localhost:8081",
+        "name": "Cloud",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/nextcloud.png"
+    },
+    {
+        "hostname": "sifre.noktafikir.com",
+        "service": "http://localhost:8085",
+        "name": "Passwords",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/vaultwarden.png"
+    },
+    {
+        "hostname": "file.noktafikir.com",
+        "service": "http://localhost:8088",
+        "name": "File Manager",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/filebrowser.png"
+    },
+    {
+        "hostname": "torrent.noktafikir.com",
+        "service": "http://localhost:8089",
+        "name": "Torrent",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/qbittorrent.png"
+    },
+    {
+        "hostname": "data.noktafikir.com",
+        "service": "http://localhost:9876",
+        "name": "Data",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/sqlite.png"
+    },
+    {
+        "hostname": "je.noktafikir.com",
+        "service": "http://localhost:8096",
+        "name": "Jellyfin",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/jellyfin.png"
+    },
+    {
+        "hostname": "ha.noktafikir.com",
+        "service": "http://localhost:8123",
+        "name": "Home Assistant",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/home-assistant.png"
+    },
+    {
+        "hostname": "noktafikir.com",
+        "service": "http://localhost:8888",
+        "name": "Main Site",
+        "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/nginx.png"
+    }
+]
