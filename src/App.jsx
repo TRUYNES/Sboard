@@ -13,6 +13,7 @@ import {
 } from '@dnd-kit/core';
 import {
   arrayMove,
+  arraySwap,
   SortableContext,
   sortableKeyboardCoordinates,
   rectSortingStrategy,
@@ -77,7 +78,7 @@ function App() {
       setServicesData((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+        return arraySwap(items, oldIndex, newIndex);
       });
     }
     setActiveId(null);
@@ -207,8 +208,13 @@ function App() {
                   {isEditMode && (
                     <div className="delete-overlay">
                       <button
-                        onMouseDown={(e) => {
-                          e.stopPropagation(); // Prevent drag start
+                        type="button"
+                        onPointerDown={(e) => {
+                          // Stop DnD from grabbing this
+                          e.stopPropagation();
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           handleDelete(service.id);
                         }}
                         className="btn-delete"
@@ -216,7 +222,7 @@ function App() {
                       >
                         <Trash2 size={20} />
                       </button>
-                      <span className="delete-text">Drag or Delete</span>
+                      <span className="delete-text">Delete</span>
                     </div>
                   )}
                 </div>
