@@ -257,24 +257,51 @@ const SystemMonitor = ({ stats, isEditMode, saveSignal, cancelSignal, onDraftCha
                                 <HardDrive size={20} />
                             </div>
                         </div>
-                        <div className="widget-value">{stats.current.disk.percent}%</div>
-                        <div className="widget-details" style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem', marginTop: '1rem', color: '#94a3b8' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Kullanılan:</span>
-                                <span style={{ color: '#facc15' }}>{stats.current.disk.usedGB} GB</span>
+                        {stats.current.disk.details && stats.current.disk.details.length > 0 ? (
+                            <div className="widget-details" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '0.5rem' }}>
+                                {stats.current.disk.details.map((disk, idx) => (
+                                    <div key={idx} style={{
+                                        paddingBottom: idx !== stats.current.disk.details.length - 1 ? '0.8rem' : '0',
+                                        borderBottom: idx !== stats.current.disk.details.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                                            <span style={{ fontWeight: '500' }}>{disk.name === '/' ? 'Root Sistemi' : disk.name}</span>
+                                            <span style={{ color: disk.percent > 85 ? '#ef4444' : '#facc15', fontWeight: '600' }}>{disk.percent}%</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                                            <span>
+                                                Kull: <span style={{ color: '#facc15' }}>{disk.usedGB} GB</span>
+                                            </span>
+                                            <span>Top: {disk.totalGB} GB</span>
+                                        </div>
+                                        <div className="widget-progress-container">
+                                            <div className="widget-progress-bar" style={{ width: `${Math.min(100, disk.percent)}%`, backgroundColor: disk.percent > 85 ? '#ef4444' : '#facc15' }}></div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Boş:</span>
-                                <span style={{ color: '#4ade80' }}>{stats.current.disk.freeGB} GB</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Toplam:</span>
-                                <span>{stats.current.disk.totalGB} GB</span>
-                            </div>
-                        </div>
-                        <div className="widget-progress-container" style={{ marginTop: '0.5rem' }}>
-                            <div className="widget-progress-bar" style={{ width: `${Math.min(100, stats.current.disk.percent)}%`, backgroundColor: '#facc15' }}></div>
-                        </div>
+                        ) : (
+                            <>
+                                <div className="widget-value">{stats.current.disk.percent}%</div>
+                                <div className="widget-details" style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem', marginTop: '1rem', color: '#94a3b8' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Kullanılan:</span>
+                                        <span style={{ color: '#facc15' }}>{stats.current.disk.usedGB} GB</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Boş:</span>
+                                        <span style={{ color: '#4ade80' }}>{stats.current.disk.freeGB} GB</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Toplam:</span>
+                                        <span>{stats.current.disk.totalGB} GB</span>
+                                    </div>
+                                </div>
+                                <div className="widget-progress-container" style={{ marginTop: '0.5rem' }}>
+                                    <div className="widget-progress-bar" style={{ width: `${Math.min(100, stats.current.disk.percent)}%`, backgroundColor: '#facc15' }}></div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 );
             default:

@@ -783,13 +783,11 @@ io.on('connection', (socket) => {
                         containerStatsStreams.set(shortId, stream);
 
                         let lastEmitTime = 0;
+                        let cpuSum = 0;
+                        let cpuSamples = 0;
 
                         stream.on('data', (chunk) => {
                             try {
-                                const now = Date.now();
-                                if (now - lastEmitTime < 5000) return;
-                                lastEmitTime = now;
-
                                 const stats = JSON.parse(chunk.toString('utf8'));
 
                                 // Calculate CPU Percent (Normalized by Cores if possible)
@@ -801,8 +799,6 @@ io.on('connection', (socket) => {
                                     cpuPercent = (cpuDelta / systemDelta) * stats.cpu_stats.online_cpus * 100.0;
                                 }
 
-                                // Calculate Normalized CPU as requested in KI (divided by host cores)
-                                // Since online_cpus is usually available in stats.cpu_stats.online_cpus
                                 const normalizedCpuPercent = cpuPercent / (stats.cpu_stats.online_cpus || 1);
 
                                 // Calculate RAM Percent
@@ -813,26 +809,39 @@ io.on('connection', (socket) => {
                                     ramPercent = (usedMemory / availableMemory) * 100.0;
                                 }
 
-                                // Calculate Network I/O
-                                let rxBytes = 0;
-                                let txBytes = 0;
-                                if (stats.networks) {
-                                    for (const [key, network] of Object.entries(stats.networks)) {
-                                        rxBytes += network.rx_bytes;
-                                        txBytes += network.tx_bytes;
-                                    }
-                                }
+                                cpuSum += normalizedCpuPercent;
+                                cpuSamples++;
 
-                                io.emit('stats:update', {
-                                    id: shortId,
-                                    cpu: normalizedCpuPercent.toFixed(2),
-                                    rawCpu: cpuPercent.toFixed(2),
-                                    ram: ramPercent.toFixed(1),
-                                    ramUsedMB: bytesToMB(usedMemory || 0),
-                                    ramTotalGB: (availableMemory / (1024 * 1024 * 1024)).toFixed(1),
-                                    netRxMB: bytesToMB(rxBytes),
-                                    netTxMB: bytesToMB(txBytes)
-                                });
+                                const now = Date.now();
+                                if (now - lastEmitTime >= 3000) {
+                                    const avgCpu = cpuSamples > 0 ? (cpuSum / cpuSamples) : normalizedCpuPercent;
+
+                                    // Calculate Network I/O
+                                    let rxBytes = 0;
+                                    let txBytes = 0;
+                                    if (stats.networks) {
+                                        for (const [key, network] of Object.entries(stats.networks)) {
+                                            rxBytes += network.rx_bytes;
+                                            txBytes += network.tx_bytes;
+                                        }
+                                    }
+
+                                    io.emit('stats:update', {
+                                        id: shortId,
+                                        cpu: avgCpu.toFixed(2),
+                                        rawCpu: cpuPercent.toFixed(2),
+                                        ram: ramPercent.toFixed(1),
+                                        ramUsedMB: bytesToMB(usedMemory || 0),
+                                        ramTotalGB: (availableMemory / (1024 * 1024 * 1024)).toFixed(1),
+                                        netRxMB: bytesToMB(rxBytes),
+                                        netTxMB: bytesToMB(txBytes)
+                                    });
+
+                                    // Reset accumulators
+                                    cpuSum = 0;
+                                    cpuSamples = 0;
+                                    lastEmitTime = now;
+                                }
 
                             } catch (e) {
                                 // Ignore parse errors on partial chunks
@@ -962,10 +971,16 @@ app.get('/api/system/stats', async (req, res) => {
                     percent: currentRamPercent
                 },
                 disk: {
-                    usedGB: (usedDisk / (1024 * 1024 * 1024)).toFixed(2),
-                    totalGB: (totalDisk / (1024 * 1024 * 1024)).toFixed(2),
-                    freeGB: ((totalDisk - usedDisk) / (1024 * 1024 * 1024)).toFixed(2),
-                    percent: diskPercent
+                    usedGB: (usedDisk / (1024 * 1024 * 1024)).toFixed(1),
+                    totalGB: (totalDisk / (1024 * 1024 * 1024)).toFixed(1),
+                    freeGB: ((totalDisk - usedDisk) / (1024 * 1024 * 1024)).toFixed(1),
+                    percent: diskPercent,
+                    details: physicalDisks.map(d => ({
+                        name: d.mount,
+                        usedGB: (d.used / (1024 * 1024 * 1024)).toFixed(1),
+                        totalGB: (d.size / (1024 * 1024 * 1024)).toFixed(1),
+                        percent: d.size > 0 ? ((d.used / d.size) * 100).toFixed(1) : 0
+                    }))
                 },
                 uptime: time.uptime
             },
