@@ -910,14 +910,11 @@ app.get('/api/system/stats', async (req, res) => {
             const isSnap = d.mount.includes('/snap/');
             const isBoot = d.mount.includes('/boot');
 
-            // Allow explicit root or media mounts either direct or via our /.host bind
-            const isValidMount = d.mount === '/' || d.mount === '/.host' || d.mount.includes('/media') || d.mount.includes('/mnt');
-
-            if (isPhysical && !isDockerPath && !isSnap && !isBoot && isValidMount) {
+            if (isPhysical && !isDockerPath && !isSnap && !isBoot) {
                 // Clean the mount name for display if it came from our Docker bind
                 let displayName = d.mount;
-                if (displayName.startsWith('/.host')) {
-                    displayName = displayName.replace('/.host', '') || '/';
+                if (displayName.startsWith('/hostroot')) {
+                    displayName = displayName.replace('/hostroot', '') || '/';
                 }
 
                 if (!seenMounts.has(displayName)) {
