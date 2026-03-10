@@ -1,14 +1,17 @@
 version: '3.8'
 
 services:
-  dashboard:
-    container_name: modern-dashboard
+  sboard:
+    container_name: sboard
     build: .
     restart: unless-stopped
     ports:
-      - "3005:80"
+      - "5858:80"
     volumes:
-      - ./public/config.json:/usr/share/nginx/html/config.json:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./stacks:/app/stacks
+    environment:
+      - HOST_PROJECT_PATH=/home/mebs/pi-hosted/sboard
     networks:
       - dashboard-net
 

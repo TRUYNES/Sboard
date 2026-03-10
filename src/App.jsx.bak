@@ -1,14 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import ServiceCard from './components/ServiceCard';
-import SystemMetrics from './components/SystemMetrics';
-import BottomNav from './components/BottomNav';
-import SettingsModal from './components/SettingsModal';
-import LockScreen from './components/LockScreen';
-import TerminalModal from './components/TerminalModal';
-import StackManager from './components/StackManager';
-import SystemMonitor from './components/SystemMonitor';
-import { SortableItem } from './components/SortableItem';
-import { Search, LayoutGrid, Loader2, Plus, Edit2, Check, X, RotateCcw, Trash2, GripVertical, Undo2, Settings, Activity } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    Search,
+    Plus,
+    Settings,
+    X,
+    Edit2,
+    Trash2,
+    Check,
+    Undo2,
+    RotateCcw,
+    LayoutGrid,
+    Activity,
+    GripVertical
+} from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -16,62 +20,117 @@ import {
     PointerSensor,
     useSensor,
     useSensors,
-    DragOverlay
+    DragOverlay,
 } from '@dnd-kit/core';
 import {
-    arraySwap,
+    arrayMove,
     SortableContext,
     sortableKeyboardCoordinates,
+    useSortable
 } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+import ServiceCard from './components/ServiceCard';
+import SettingsModal from './components/SettingsModal';
+import LockScreen from './components/LockScreen';
+import TerminalModal from './components/TerminalModal';
+import SystemMetrics from './components/SystemMetrics';
+import BottomNav from './components/BottomNav';
+import StackManager from './components/StackManager';
+import SystemMonitor from './components/SystemMonitor';
+
+// --- Sortable Item Component ---
+function SortableItem(props) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: props.id, disabled: props.disabled });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 999 : 1,
+        position: 'relative',
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className={props.isOver ? 'drop-target' : ''}>
+            {props.children({ attributes, listeners })}
+        </div>
+    );
+}
+
 
 function App() {
     const [searchTerm, setSearchTerm] = useState('');
     const [servicesData, setServicesData] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [isEditMode, setIsEditMode] = useState(false);
-    const [activeId, setActiveId] = useState(null);
-    const [overId, setOverId] = useState(null);
-
-    // Undo History
-    const [history, setHistory] = useState([]);
-
-    // New Service Form State
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [editingServiceId, setEditingServiceId] = useState(null);
     const [newService, setNewService] = useState({ name: '', hostname: '', service: '', icon: '' });
-
-    // Reset Confirmation State
-    const [showResetModal, setShowResetModal] = useState(false);
 
     // Delete Confirmation State
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [serviceToDelete, setServiceToDelete] = useState(null);
 
-    // Exit Warning Modal State
+    // Undo History
+    const [history, setHistory] = useState([]);
+
+    // Reset Confirmation State
+    const [showResetModal, setShowResetModal] = useState(false);
+
+    // Exit Warning State
     const [showExitWarningModal, setShowExitWarningModal] = useState(false);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-    // Menu/Settings Modal State
-    const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [monitorSaveSignal, setMonitorSaveSignal] = useState(0);
-    const [monitorCancelSignal, setMonitorCancelSignal] = useState(0);
-    const [monitorHasUnsavedChanges, setMonitorHasUnsavedChanges] = useState(false);
+    // Security
+    const [isLocked, setIsLocked] = useState(false);
+    const [password, setPassword] = useState(localStorage.getItem('dashboard_password') || '');
 
-    // Terminal Modal State
+    // Terminal State
     const [showTerminal, setShowTerminal] = useState(false);
-    const [terminalContainer, setTerminalContainer] = useState(null); // { id, name }
+    const [terminalContainer, setTerminalContainer] = useState(null);
+
+    // Active Drag Item
+    const [activeId, setActiveId] = useState(null);
+    // Current Drop Target
+    const [overId, setOverId] = useState(null);
+
+
+    // System Stats
+    const [systemStats, setSystemStats] = useState(null);
+
+    // View State (Dashboard vs System Monitor)
+    const [currentView, setCurrentView] = useState('home'); // 'home' or 'monitor'
 
     // Stack Manager State
     const [showStackManager, setShowStackManager] = useState(false);
 
-    // Security State
-    const [password, setPassword] = useState(null);
-    const [isLocked, setIsLocked] = useState(false);
 
-    // View Routing State
-    const [currentView, setCurrentView] = useState('home'); // 'home' | 'monitor'
-    const [systemStats, setSystemStats] = useState(null);
+    useEffect(() => {
+        // Check lock state
+        if (password) {
+            if (sessionStorage.getItem('dashboard_unlocked') !== 'true') {
+                setIsLocked(true);
+            }
+        }
+    }, [password]);
 
-    // Centralize System Stats Fetching for complete sync between widgets
+    // Fetch real services on load
+    useEffect(() => {
+        fetch('/api/services')
+            .then(res => res.json())
+            .then(data => setServicesData(data))
+            .catch(err => console.error('Error fetching services:', err));
+    }, []);
+
+    // Fetch System Stats periodically
     useEffect(() => {
         const fetchStats = async () => {
             try {
@@ -79,19 +138,21 @@ function App() {
                 const data = await res.json();
                 setSystemStats(data);
             } catch (err) {
-                console.error("Failed to fetch system stats:", err);
+                console.error('Error fetching system stats:', err);
             }
         };
 
-        fetchStats();
-        const interval = setInterval(fetchStats, 3000);
+        fetchStats(); // Initial fetch
+        const interval = setInterval(fetchStats, 3000); // Poll every 3 seconds
+
         return () => clearInterval(interval);
     }, []);
+
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8,
+                distance: 5, // 5px movement required before dragging starts
             },
         }),
         useSensor(KeyboardSensor, {
@@ -99,130 +160,66 @@ function App() {
         })
     );
 
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                // Load Services
-                const storedOrder = localStorage.getItem('dashboard_services');
-                if (storedOrder) {
-                    setServicesData(JSON.parse(storedOrder));
-                } else {
-                    const res = await fetch('/config.json');
-                    const data = await res.json();
+    const filteredServices = servicesData.filter(service =>
+        service.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-                    // Process Data to replace __HOST__ with actual hostname
-                    const processedData = data.map((item, index) => ({
-                        ...item,
-                        id: item.id || `service-${index}`,
-                        hostname: item.hostname ? item.hostname.replace('__HOST__', window.location.hostname) : item.hostname,
-                        service: item.service ? item.service.replace('__HOST__', window.location.hostname) : item.service
-                    }));
-
-                    setServicesData(processedData);
-                }
-
-                // Load Security Settings
-                const storedPassword = localStorage.getItem('sboard_password');
-                if (storedPassword) {
-                    setPassword(storedPassword);
-                    setIsLocked(true);
-                } else {
-                    // Default Password Strategy
-                    const defaultPass = 'admin123';
-                    localStorage.setItem('sboard_password', defaultPass);
-                    setPassword(defaultPass);
-                    setIsLocked(true);
-                }
-
-                setLoading(false);
-            } catch (err) {
-                console.error("Failed to load config", err);
-                setLoading(false);
-            }
-        };
-        loadData();
-    }, []);
-
-    const handleCancel = useCallback(() => {
-        // Discard changes and exit edit mode
-        // Reload data from localStorage or config.json
-        const storedOrder = localStorage.getItem('dashboard_services');
-        if (storedOrder) {
-            setServicesData(JSON.parse(storedOrder));
+    const toggleEditMode = () => {
+        if (isEditMode) {
+            // Save changes
+            fetch('/api/services', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(servicesData)
+            })
+                .then(() => {
+                    setIsEditMode(false);
+                    setHistory([]); // Clear history on save
+                    setHasUnsavedChanges(false);
+                })
+                .catch(err => alert('Failed to save changes.'));
+        } else {
+            setIsEditMode(true);
+            setHistory([]); // Reset history when entering edit mode
+            setHasUnsavedChanges(false);
         }
+    };
 
-        // Signal System Monitor to reset
-        setMonitorCancelSignal(prev => prev + 1);
-
-        setIsEditMode(false);
-        setHistory([]);
-        setMonitorHasUnsavedChanges(false);
-        setShowExitWarningModal(false);
-    }, []);
-
-    // Handle Escape key to exit edit mode
-    const handleExitEditMode = useCallback(() => {
-        if (history.length > 0 || monitorHasUnsavedChanges) {
+    const handleExitEditMode = () => {
+        if (hasUnsavedChanges) {
             setShowExitWarningModal(true);
         } else {
-            handleCancel();
+            setIsEditMode(false);
         }
-    }, [history.length, monitorHasUnsavedChanges, handleCancel]);
+    };
 
-    useEffect(() => {
-        const handleEscape = (e) => {
-            if (e.key === 'Escape' && isEditMode) {
-                handleExitEditMode();
-            }
-        };
+    const handleCancel = () => {
+        // Reload original data
+        fetch('/api/services')
+            .then(res => res.json())
+            .then(data => {
+                setServicesData(data);
+                setIsEditMode(false);
+                setHistory([]);
+                setHasUnsavedChanges(false);
+                setShowExitWarningModal(false);
+            });
+    };
 
-        window.addEventListener('keydown', handleEscape);
-        return () => window.removeEventListener('keydown', handleEscape);
-    }, [isEditMode, handleExitEditMode]);
-
-    // Handle monitor draft changes
-    useEffect(() => {
-        const handleMonitorDraft = () => {
-            setMonitorHasUnsavedChanges(true);
-        };
-        window.addEventListener('monitorDraftChange', handleMonitorDraft);
-        return () => window.removeEventListener('monitorDraftChange', handleMonitorDraft);
-    }, []);
-
-    const addToHistory = (currentData) => {
-        setHistory(prev => [...prev, JSON.stringify(currentData)]);
+    const saveHistoryState = () => {
+        setHistory(prev => [...prev, [...servicesData]]);
+        setHasUnsavedChanges(true);
     };
 
     const handleUndo = () => {
-        if (history.length === 0) return;
-
-        const previousState = JSON.parse(history[history.length - 1]);
-        setServicesData(previousState);
-        setHistory(prev => prev.slice(0, prev.length - 1));
-    };
-
-    const handleDragStart = (event) => {
-        setActiveId(event.active.id);
-    };
-
-    const handleDragOver = (event) => {
-        setOverId(event.over?.id || null);
-    };
-
-    const handleDragEnd = (event) => {
-        const { active, over } = event;
-        if (active.id !== over.id) {
-            // Save state before changing
-            addToHistory(servicesData);
-
-            setServicesData((items) => {
-                const oldIndex = items.findIndex((item) => item.id === active.id);
-                const newIndex = items.findIndex((item) => item.id === over.id);
-                return arraySwap(items, oldIndex, newIndex);
-            });
+        if (history.length > 0) {
+            const previousState = history[history.length - 1];
+            setServicesData(previousState);
+            setHistory(prev => prev.slice(0, -1));
+            if (history.length === 1) {
+                setHasUnsavedChanges(false);
+            }
         }
-        setActiveId(null);
-        setOverId(null);
     };
 
     const handleReset = () => {
@@ -230,8 +227,24 @@ function App() {
     };
 
     const confirmReset = () => {
-        localStorage.removeItem('dashboard_services');
-        window.location.reload();
+        fetch('/api/services/reset', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                setServicesData(data);
+                setShowResetModal(false);
+                setIsEditMode(false);
+                setHistory([]);
+                setHasUnsavedChanges(false);
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Sıfırlama başarısız oldu.');
+            });
+    };
+
+    const openTerminal = (container) => {
+        setTerminalContainer(container);
+        setShowTerminal(true);
     };
 
     const handleDeleteClick = (id) => {
@@ -240,177 +253,106 @@ function App() {
     };
 
     const confirmDelete = () => {
-        if (serviceToDelete) {
-            // Save state before changing
-            addToHistory(servicesData);
+        saveHistoryState();
+        setServicesData(servicesData.filter(s => s.id !== serviceToDelete));
+        setShowDeleteModal(false);
+        setServiceToDelete(null);
+    };
 
-            setServicesData(prev => prev.filter(s => s.id !== serviceToDelete));
-            setServiceToDelete(null);
-            setShowDeleteModal(false);
+    const handleEditService = (service) => {
+        setEditingServiceId(service.id);
+        setNewService({ ...service });
+        setShowAddModal(true);
+    };
+
+    const handleDragStart = (event) => {
+        setActiveId(event.active.id);
+    };
+
+    const handleDragOver = (event) => {
+        const { over } = event;
+        setOverId(over ? over.id : null);
+    };
+
+    const handleDragEnd = (event) => {
+        const { active, over } = event;
+        setActiveId(null);
+        setOverId(null);
+
+        if (active.id !== over.id) {
+            saveHistoryState();
+            setServicesData((items) => {
+                const oldIndex = items.findIndex(i => i.id === active.id);
+                const newIndex = items.findIndex(i => i.id === over.id);
+                return arrayMove(items, oldIndex, newIndex);
+            });
         }
     };
 
     const handleAddService = (e) => {
         e.preventDefault();
-        if (!newService.name || !newService.hostname) return;
-
-        // Save state before changing
-        addToHistory(servicesData);
-
+        saveHistoryState();
         if (editingServiceId) {
-            // UPDATE Existing Service
-            setServicesData(prev => prev.map(s =>
-                s.id === editingServiceId ? { ...newService, id: editingServiceId } : s
-            ));
-            setEditingServiceId(null);
+            setServicesData(servicesData.map(s => s.id === editingServiceId ? { ...s, ...newService } : s));
         } else {
-            // CREATE New Service
-            const newId = `custom-${Date.now()}`;
-            const serviceToAdd = {
-                ...newService,
-                id: newId,
-                // Default to 192.168.1.58: if not provided
-                service: newService.service || `http://192.168.1.58:`
-            };
-            setServicesData([...servicesData, serviceToAdd]);
+            const id = 'auto-' + newService.name.toLowerCase().replace(/\s+/g, '-');
+            setServicesData([...servicesData, { ...newService, id, status: 'unknown' }]);
         }
-
-        setNewService({ name: '', hostname: '', service: '', icon: '' });
-        setShowAddModal(false);
+        closeAddModal();
     };
 
-    const handleEditService = (service) => {
-        setNewService({
-            name: service.name,
-            hostname: service.hostname,
-            service: service.service,
-            icon: service.icon || ''
-        });
-        setEditingServiceId(service.id);
-        setShowAddModal(true);
-    };
-
-    // Clear edit state when closing modal
     const closeAddModal = () => {
         setShowAddModal(false);
         setEditingServiceId(null);
         setNewService({ name: '', hostname: '', service: '', icon: '' });
     };
 
-    const handleSave = () => {
-        localStorage.setItem('dashboard_services', JSON.stringify(servicesData));
-
-        // Signal System Monitor to save
-        setMonitorSaveSignal(prev => prev + 1);
-
-        setIsEditMode(false);
-        setHistory([]); // Clear history on save
-        setMonitorHasUnsavedChanges(false);
+    const handleImport = (importedData) => {
+        saveHistoryState();
+        setServicesData(importedData);
+        setIsEditMode(true); // Enter edit mode so user can save the imported data
+        setShowSettingsModal(false);
     };
 
-
-    const toggleEditMode = () => {
-        if (isEditMode) {
-            // User clicked "Done" - Save
-            handleSave();
+    const handleUpdatePassword = (newPwd) => {
+        if (newPwd) {
+            localStorage.setItem('dashboard_password', newPwd);
+            setPassword(newPwd);
         } else {
-            // User clicked "Edit" - Enter edit mode
-            // Initial state is already loaded, so just enable edit mode
-            setIsEditMode(true);
-            setHistory([]); // Clear history when entering edit mode
+            localStorage.removeItem('dashboard_password');
+            setPassword('');
+            setIsLocked(false);
+            sessionStorage.removeItem('dashboard_unlocked');
         }
     };
-
-    // --- Security & Settings Handlers ---
 
     const handleUnlock = () => {
         setIsLocked(false);
+        sessionStorage.setItem('dashboard_unlocked', 'true');
     };
-
-    const handleUpdatePassword = (newPassword) => {
-        if (newPassword) {
-            localStorage.setItem('sboard_password', newPassword);
-            setPassword(newPassword);
-        } else {
-            // Logic for 'removing' password? 
-            // User asked for "Default Password", so maybe we don't allow removing, just changing.
-            // But for now, if they want to remove security, we can allow it or reset to default.
-            // Let's allow removal for flexibility, or reset to null.
-            localStorage.removeItem('sboard_password');
-            setPassword(null);
-        }
-    };
-
-    const handleImport = (importedData) => {
-        // Basic validation
-        if (!Array.isArray(importedData)) return;
-
-        // Normalize IDs if missing
-        const dataWithIds = importedData.map((item, index) => ({
-            ...item,
-            id: item.id || `restored-${index}-${Date.now()}`
-        }));
-
-        setServicesData(dataWithIds);
-        localStorage.setItem('dashboard_services', JSON.stringify(dataWithIds));
-
-        // Add to history so user can undo if it was a mistake
-        addToHistory(servicesData);
-
-        alert("Yedek başarıyla geri yüklendi!");
-    };
-
-    const filteredServices = servicesData.filter(service =>
-        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.hostname.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (loading) {
-        return (
-            <div className="loader-container">
-                <Loader2 className="spin-anim" size={40} color="#38bdf8" />
-            </div>
-        );
-    }
 
     return (
-        <div className="container">
-            {/* Header */}
-            <div className="dashboard-header">
-                <div className="brand">
-                    <div className="brand-container" onClick={() => setCurrentView('home')} style={{ cursor: 'pointer' }}>
-                        <div className="brand-icon">
-                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect width="24" height="24" rx="6" fill="url(#paint0_linear)" />
-                                <defs>
-                                    <linearGradient id="paint0_linear" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-                                        <stop stopColor="#3b82f6" stopOpacity="0.2" />
-                                        <stop offset="1" stopColor="#8b5cf6" stopOpacity="0.1" />
-                                    </linearGradient>
-                                </defs>
-                                {/* S Harfi Noktalar */}
-                                <rect x="15" y="5" width="4" height="3" rx="1" fill="#38bdf8" />
-                                <rect x="10" y="5" width="4" height="3" rx="1" fill="#38bdf8" />
-                                <rect x="5" y="5" width="4" height="3" rx="1" fill="#38bdf8" />
-
-                                <rect x="5" y="9" width="4" height="3" rx="1" fill="#38bdf8" />
-
-                                <rect x="5" y="12" width="4" height="3" rx="1" fill="#38bdf8" />
-                                <rect x="10" y="12" width="4" height="3" rx="1" fill="#38bdf8" />
-                                <rect x="15" y="12" width="4" height="3" rx="1" fill="#38bdf8" />
-
-                                <rect x="15" y="16" width="4" height="3" rx="1" fill="#38bdf8" />
-
-                                <rect x="5" y="19" width="4" height="3" rx="1" fill="#38bdf8" />
-                                <rect x="10" y="19" width="4" height="3" rx="1" fill="#38bdf8" />
-                                <rect x="15" y="19" width="4" height="3" rx="1" fill="#38bdf8" />
-                            </svg>
-                        </div>
-                        <div className="brand-text">
-                            <h1>Sboard</h1>
-                            <p>System Dashboard</p>
-                        </div>
+        <div className="app-container">
+            {/* Top Header */}
+            <header className="dashboard-header">
+                {/* Brand & Mobile Setup */}
+                <div className="brand" onClick={() => setCurrentView('home')} style={{ cursor: 'pointer' }}>
+                    <div className="brand-logo">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="3" width="7" height="7" rx="2" fill="#38bdf8" />
+                            <rect x="14" y="3" width="7" height="7" rx="2" fill="#38bdf8" fillOpacity="0.5" />
+                            <rect x="14" y="14" width="7" height="7" rx="2" fill="#38bdf8" />
+                            <path d="M3 16C3 14.8954 3.89543 14 5 14H10V21H5C3.89543 21 3 20.1046 3 19V16Z" fill="#38bdf8" fillOpacity="0.5" />
+                            <rect x="5" y="19" width="4" height="3" rx="1" fill="#38bdf8" />
+                            <rect x="10" y="19" width="4" height="3" rx="1" fill="#38bdf8" />
+                            <rect x="15" y="19" width="4" height="3" rx="1" fill="#38bdf8" />
+                        </svg>
                     </div>
+                    <div className="brand-text">
+                        <h1>Sboard</h1>
+                        <p>System Dashboard</p>
+                    </div>
+
                     {/* Mobile Search - Integrated into Header */}
                     <div className="mobile-inline-search">
                         <Search size={16} className="search-icon-sm" />
@@ -482,12 +424,12 @@ function App() {
                     {!isEditMode && (
                         <button
                             onClick={() => setCurrentView(currentView === 'home' ? 'monitor' : 'home')}
-                            className={`action-btn btn-view-toggle ${currentView === 'monitor' ? 'active' : ''}`}
-                            title="Sistem Monitörü"
+                            className={`action-btn ${currentView === 'monitor' ? 'active' : ''}`}
+                            title={currentView === 'home' ? "Sistem Monitörü" : "Ana Sayfa"}
                             style={{ borderRadius: '12px', marginRight: '0.5rem', height: '48px', ...(currentView === 'monitor' ? { background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.2)' } : {}) }}
                         >
                             <Activity size={20} />
-                            {currentView === 'home' ? <span>Sistem Monitörü</span> : <span>Ana Sayfa</span>}
+                            <span className="btn-text">{currentView === 'home' ? 'Sistem Monitörü' : 'Ana Sayfa'}</span>
                         </button>
                     )}
 
@@ -517,45 +459,45 @@ function App() {
                     )}
 
                     {/* Edit Controls */}
-                    <div className="edit-actions">
+                    {currentView === 'home' && (
+                        <div className="edit-actions">
 
-                        {isEditMode && (
-                            <>
-                                {currentView === 'home' && (
-                                    <>
+                            {isEditMode && (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setEditingServiceId(null);
+                                            setNewService({ name: '', hostname: '', service: '', icon: '' });
+                                            setShowAddModal(true);
+                                        }}
+                                        className="action-btn btn-add"
+                                        title="Servis Ekle"
+                                    >
+                                        <Plus size={20} />
+                                    </button>
+
+                                    {history.length > 0 && (
                                         <button
-                                            onClick={() => {
-                                                setEditingServiceId(null);
-                                                setNewService({ name: '', hostname: '', service: '', icon: '' });
-                                                setShowAddModal(true);
-                                            }}
-                                            className="action-btn btn-add"
-                                            title="Servis Ekle"
-                                        >
-                                            <Plus size={20} />
-                                        </button>
-
-                                        {history.length > 0 && (
-                                            <button
-                                                onClick={handleUndo}
-                                                className="action-btn btn-reset"
-                                                title="Son İşlemi Geri Al"
-                                                style={{ color: '#fbbf24', borderColor: 'rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.1)' }}
-                                            >
-                                                <Undo2 size={20} />
-                                            </button>
-                                        )}
-
-                                        <button
-                                            onClick={handleReset}
+                                            onClick={handleUndo}
                                             className="action-btn btn-reset"
-                                            title="Varsayılana Dön"
+                                            title="Son İşlemi Geri Al"
+                                            style={{ color: '#fbbf24', borderColor: 'rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.1)' }}
                                         >
-                                            <RotateCcw size={20} />
+                                            <Undo2 size={20} />
                                         </button>
-                                    </>
-                                )}
+                                    )}
 
+                                    <button
+                                        onClick={handleReset}
+                                        className="action-btn btn-reset"
+                                        title="Varsayılana Dön"
+                                    >
+                                        <RotateCcw size={20} />
+                                    </button>
+                                </>
+                            )}
+
+                            {isEditMode && (
                                 <button
                                     onClick={handleExitEditMode}
                                     className="action-btn btn-cancel"
@@ -564,32 +506,24 @@ function App() {
                                     <X size={18} />
                                     İptal
                                 </button>
-                            </>
-                        )}
+                            )}
 
-                        <button
-                            onClick={toggleEditMode}
-                            className={`action-btn btn-edit ${isEditMode ? 'active' : ''}`}
-                            title={isEditMode ? "Değişiklikleri Kaydet" : "Paneli Düzenle"}
-                        >
-                            {isEditMode ? <Check size={18} /> : <Edit2 size={18} />}
-                            {isEditMode ? 'Tamam' : 'Düzenle'}
-                        </button>
-                    </div>
+                            <button
+                                onClick={toggleEditMode}
+                                className={`action-btn btn-edit ${isEditMode ? 'active' : ''}`}
+                                title={isEditMode ? "Değişiklikleri Kaydet" : "Paneli Düzenle"}
+                            >
+                                {isEditMode ? <Check size={18} /> : <Edit2 size={18} />}
+                                {isEditMode ? 'Tamam' : 'Düzenle'}
+                            </button>
+                        </div>
+                    )}
                 </div>
-            </div>
+            </header>
 
             {/* Main Content Area */}
             {currentView === 'monitor' ? (
-                <SystemMonitor
-                    stats={systemStats}
-                    isEditMode={isEditMode}
-                    saveSignal={monitorSaveSignal}
-                    cancelSignal={monitorCancelSignal}
-                    onDraftChange={() => {
-                        window.dispatchEvent(new Event('monitorDraftChange'));
-                    }}
-                />
+                <SystemMonitor stats={systemStats} />
             ) : (
                 /* Grid */
                 <DndContext
@@ -666,6 +600,31 @@ function App() {
                                     )}
                                 </SortableItem>
                             ))}
+
+                            {/* Add New Service Card Placeholder */}
+                            {isEditMode && (
+                                <div
+                                    className="service-card-wrapper"
+                                    onClick={() => {
+                                        setEditingServiceId(null);
+                                        setNewService({ name: '', hostname: '', service: '', icon: '' });
+                                        setShowAddModal(true);
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <button
+                                        className="service-btn"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            // No action needed for Add button visually
+                                        }}
+                                        title="Yeni Servis Ekle"
+                                        style={{ background: 'rgba(255, 255, 255, 0.05)' }}
+                                    >
+                                        <Plus size={32} style={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </SortableContext>
 
@@ -685,9 +644,7 @@ function App() {
                     <div className="modal-card">
                         <div className="modal-header">
                             <div className="modal-title">
-                                <div style={{ padding: '0.4rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', color: '#34d399' }}>
-                                    {editingServiceId ? <Edit2 size={20} /> : <Plus size={20} />}
-                                </div>
+                                <Plus size={20} style={{ color: '#38bdf8' }} />
                                 {editingServiceId ? 'Servisi Düzenle' : 'Yeni Servis Ekle'}
                             </div>
                             <button onClick={closeAddModal} className="modal-close">
@@ -695,12 +652,11 @@ function App() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleAddService} className="modal-body">
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <form onSubmit={handleAddService}>
+                            <div className="modal-body">
                                 <div className="form-group">
-                                    <label className="form-label">İsim</label>
+                                    <label className="form-label">Servis Adı</label>
                                     <input
-                                        autoFocus
                                         type="text"
                                         required
                                         className="form-input"

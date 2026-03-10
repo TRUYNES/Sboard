@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { ExternalLink, Network, Globe } from 'lucide-react';
+import { ExternalLink, Network, LayoutGrid, TerminalSquare } from 'lucide-react';
 
 const PI_IP = '192.168.1.58';
 
-const ServiceCard = ({ service }) => {
+const ServiceCard = ({ service, onTerminal }) => {
   const [imgError, setImgError] = useState(false);
 
   const getLocalUrl = () => {
@@ -36,7 +36,7 @@ const ServiceCard = ({ service }) => {
               onError={() => setImgError(true)}
             />
           ) : (
-            <Globe size={24} />
+            <LayoutGrid size={24} />
           )}
         </div>
       </div>
@@ -46,12 +46,25 @@ const ServiceCard = ({ service }) => {
       </div>
 
       <div className="card-right">
+        {service.containerId && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              onTerminal && onTerminal(service);
+            }}
+            className="action-btn btn-terminal"
+            title="Terminal Logs"
+          >
+            <TerminalSquare size={16} />
+          </button>
+        )}
+
         <a
           href={localUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="action-btn btn-local"
-          title="Local Access"
+          title="Yerel Erişim"
         >
           <Network size={16} />
         </a>
@@ -60,12 +73,13 @@ const ServiceCard = ({ service }) => {
           target="_blank"
           rel="noopener noreferrer"
           className="action-btn btn-public"
-          title="Public Access"
+          title="Harici Erişim"
         >
           <ExternalLink size={16} />
         </a>
       </div>
     </div>
+
   );
 };
 

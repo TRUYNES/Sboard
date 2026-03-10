@@ -1,4 +1,4 @@
-# Modern Pi Dashboard
+# Sboard
 
 A lightweight, glassmorphism-styled dashboard for your Raspberry Pi application services, built with Vite + React + Vanilla CSS.
 
@@ -53,6 +53,6 @@ Then on your Dockge/Portainer/Pi:
 
 ```bash
 git clone <your-repo-url>
-cd modern-dashboard
+cd sboard
 docker-compose up -d --build
 ```

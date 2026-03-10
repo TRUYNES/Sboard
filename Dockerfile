@@ -3,14 +3,19 @@ FROM node:20-alpine as build-stage
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
+RUN apk add --no-cache docker-cli docker-cli-compose git
 COPY . .
 RUN npm run build
 
 # Production Stage
-FROM nginx:stable-alpine as production-stage
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-# Copy custom nginx config if we needed one, but default is usually fine for SPA if we handle 404s
-# For React Router (not used here yet, but good practice), we might need a custom default.conf
-# We only have a single page, so default is fine.
+FROM node:20-alpine as production-stage
+WORKDIR /app
+COPY --from=build-stage /app/dist ./dist
+# We need package.json for type: module, and node_modules for deps
+COPY package*.json ./
+RUN npm install --production
+RUN apk add --no-cache docker-cli docker-cli-compose git
+COPY server.js .
+
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]

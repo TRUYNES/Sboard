@@ -1,0 +1,65 @@
+/* Prism YAML Syntax Highlighting Theme - Dark */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: #64748b;
+}
+
+.token.punctuation {
+    color: #94a3b8;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+    color: #7dd3fc;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+    color: #a5f3fc;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+    color: #fbbf24;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+    color: #c084fc;
+}
+
+.token.function,
+.token.class-name {
+    color: #f472b6;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+    color: #fb923c;
+}
+
+/* Code editor specific styles */
+.code-editor-textarea {
+    outline: none !important;
+    caret-color: #60a5fa;
+}
+
+.code-editor-textarea::selection {
+    background: rgba(99, 102, 241, 0.3);
+}
