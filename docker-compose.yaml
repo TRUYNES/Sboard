@@ -11,6 +11,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./stacks:/app/stacks
       - ./data:/app/data
+      - /:/.host:ro
     environment:
       - HOST_PROJECT_PATH=/home/mebs/pi-hosted/sboard
     networks:

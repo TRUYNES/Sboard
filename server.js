@@ -889,7 +889,9 @@ app.get('/api/system/stats', async (req, res) => {
         // Aggregate physical disks
         // Filter out docker virtual mounts, snap packages, and duplicates
         const seenMounts = new Set();
-        const physicalDisks = fsSize.filter(d => {
+        const physicalDisks = [];
+
+        fsSize.forEach(d => {
             // Must be a physical looking device
             const isPhysical = d.fs.startsWith('/dev/sd') ||
                 d.fs.startsWith('/dev/nvme') ||
@@ -901,20 +903,31 @@ app.get('/api/system/stats', async (req, res) => {
 
             // Must NOT be an internal docker overlay or temporary mount
             const isDockerPath = d.mount.includes('/var/lib/docker') ||
-                d.mount.includes('/app/') ||
-                d.mount.startsWith('/etc/');
+                d.mount.includes('/app') ||
+                d.mount.includes('/etc');
 
             // Must NOT be a snap or loop device mount
-            const isSnap = d.mount.startsWith('/snap/');
-            const isBoot = d.mount.startsWith('/boot');
+            const isSnap = d.mount.includes('/snap/');
+            const isBoot = d.mount.includes('/boot');
 
-            if (isPhysical && !isDockerPath && !isSnap && !isBoot) {
-                if (!seenMounts.has(d.mount)) {
-                    seenMounts.add(d.mount);
-                    return true;
+            // Allow explicit root or media mounts either direct or via our /.host bind
+            const isValidMount = d.mount === '/' || d.mount === '/.host' || d.mount.includes('/media') || d.mount.includes('/mnt');
+
+            if (isPhysical && !isDockerPath && !isSnap && !isBoot && isValidMount) {
+                // Clean the mount name for display if it came from our Docker bind
+                let displayName = d.mount;
+                if (displayName.startsWith('/.host')) {
+                    displayName = displayName.replace('/.host', '') || '/';
+                }
+
+                if (!seenMounts.has(displayName)) {
+                    seenMounts.add(displayName);
+                    physicalDisks.push({
+                        ...d,
+                        mount: displayName
+                    });
                 }
             }
-            return false;
         });
 
         let totalDisk = 0;
