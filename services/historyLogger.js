@@ -116,8 +116,9 @@ export const getHistoryData = (range = 'daily') => {
             yearly: 24 * 60 * 60 * 1000    // 24 hours
         }[validRange] || (3 * 60 * 1000);
 
-        // Generate 15 fake historical points stretching back properly to give a fully populated look
-        for (let i = 15; i > 0; i--) {
+        // Generate properly populated fake historical points to give a fully populated look stretching back
+        // 120 points is enough to fill a chart visually without overwhelming start times
+        for (let i = 120; i > 0; i--) {
             const variance = () => (Math.random() * 4) - 2; // -2 to +2
 
             array.push({

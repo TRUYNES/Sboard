@@ -11,7 +11,7 @@ const SystemMetrics = ({ isMobile = false, stats }) => {
         return (
             <div className="metric-badges">
                 <span className="badge cpu">{parseFloat(stats.cpu.usage).toFixed(1)}%</span>
-                <span className="badge temp">{stats.temp.celsius}°</span>
+                <span className="badge temp">{parseFloat(stats.temp.celsius).toFixed(1)}°</span>
                 <span className="badge ram">{ramPercent}%</span>
             </div>
         );
@@ -32,7 +32,7 @@ const SystemMetrics = ({ isMobile = false, stats }) => {
             {/* Temperature */}
             <div className="metric-item" title="CPU Sıcaklığı">
                 <Thermometer size={14} className="metric-icon" />
-                <span className="metric-text">{stats.temp.celsius}°C</span>
+                <span className="metric-text">{parseFloat(stats.temp.celsius).toFixed(1)}°C</span>
             </div>
 
             {/* Divider */}

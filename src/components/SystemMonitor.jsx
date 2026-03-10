@@ -22,6 +22,29 @@ const defaultSectionOrder = ['widgets', 'chart', 'containers'];
 
 const SystemMonitor = ({ stats, isEditMode, saveSignal, cancelSignal, onDraftChange }) => {
     const [containers, setContainers] = useState([]);
+    const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+
+    // Handle Sorting
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+        setSortConfig({ key, direction });
+    };
+
+    const sortedContainers = [...containers].sort((a, b) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        // Parse numbers for correct sorting
+        if (['cpu', 'ram', 'netRxMB', 'netTxMB'].includes(sortConfig.key)) {
+            aVal = parseFloat(aVal) || 0;
+            bVal = parseFloat(bVal) || 0;
+        }
+
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
 
     // Sortable Widgets State
     const [widgetOrder, setWidgetOrder] = useState(() => {
@@ -213,11 +236,11 @@ const SystemMonitor = ({ stats, isEditMode, saveSignal, cancelSignal, onDraftCha
                                 <Thermometer size={20} />
                             </div>
                         </div>
-                        <div className="widget-value">{stats.current.temp.celsius}°C</div>
+                        <div className="widget-value">{parseFloat(stats.current.temp.celsius).toFixed(1)}°C</div>
                         <div className="widget-peak-container">
                             <span className="peak-label">Pik (24s)</span>
                             <div className="peak-badge" style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
-                                {stats.peaks?.temp?.value}°C {stats.peaks?.temp?.time}
+                                {parseFloat(stats.peaks?.temp?.value).toFixed(1)}°C {stats.peaks?.temp?.time}
                             </div>
                         </div>
                         <div className="widget-progress-container">
@@ -294,17 +317,17 @@ const SystemMonitor = ({ stats, isEditMode, saveSignal, cancelSignal, onDraftCha
                             <table className="monitor-table">
                                 <thead>
                                     <tr>
-                                        <th>AD</th>
-                                        <th>DURUM</th>
-                                        <th>CPU %</th>
-                                        <th>RAM %</th>
-                                        <th><ArrowDown size={14} /> İNDİRME</th>
-                                        <th><ArrowUp size={14} /> GÖNDERME</th>
+                                        <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>AD {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
+                                        <th onClick={() => handleSort('state')} style={{ cursor: 'pointer' }}>DURUM {sortConfig.key === 'state' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
+                                        <th onClick={() => handleSort('cpu')} style={{ cursor: 'pointer' }}>CPU % {sortConfig.key === 'cpu' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
+                                        <th onClick={() => handleSort('ram')} style={{ cursor: 'pointer' }}>RAM % {sortConfig.key === 'ram' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
+                                        <th onClick={() => handleSort('netRxMB')} style={{ cursor: 'pointer' }}><ArrowDown size={14} /> İNDİRME {sortConfig.key === 'netRxMB' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
+                                        <th onClick={() => handleSort('netTxMB')} style={{ cursor: 'pointer' }}><ArrowUp size={14} /> GÖNDERME {sortConfig.key === 'netTxMB' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
                                         <th>RAM DETAY</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {containers.map((container) => (
+                                    {sortedContainers.map((container) => (
                                         <tr key={container.id}>
                                             <td>
                                                 <div className="container-name-cell">

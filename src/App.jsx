@@ -84,7 +84,7 @@ function App() {
         };
 
         fetchStats();
-        const interval = setInterval(fetchStats, 3000);
+        const interval = setInterval(fetchStats, 5000);
         return () => clearInterval(interval);
     }, []);
 

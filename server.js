@@ -782,8 +782,14 @@ io.on('connection', (socket) => {
                         const stream = await container.stats({ stream: true });
                         containerStatsStreams.set(shortId, stream);
 
+                        let lastEmitTime = 0;
+
                         stream.on('data', (chunk) => {
                             try {
+                                const now = Date.now();
+                                if (now - lastEmitTime < 5000) return;
+                                lastEmitTime = now;
+
                                 const stats = JSON.parse(chunk.toString('utf8'));
 
                                 // Calculate CPU Percent (Normalized by Cores if possible)
