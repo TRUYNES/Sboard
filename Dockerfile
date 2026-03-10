@@ -16,6 +16,7 @@ COPY package*.json ./
 RUN npm install --production
 RUN apk add --no-cache docker-cli docker-cli-compose git
 COPY server.js .
+COPY services ./services
 
 EXPOSE 80
 CMD ["node", "server.js"]
