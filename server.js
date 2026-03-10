@@ -97,10 +97,53 @@ const streamCommand = (command, cwd, stackName) => {
 // --- STACK MANAGER API ---
 const STACKS_DIR = path.join(__dirname, 'stacks');
 
-// Ensure stacks dir exists
+// Initialize stacks directory if it doesn't exist
 if (!fs.existsSync(STACKS_DIR)) {
-    fs.mkdirSync(STACKS_DIR);
+    fs.mkdirSync(STACKS_DIR, { recursive: true });
 }
+
+// Ensure the data directory exists
+const DATA_DIR = path.join(process.cwd(), 'data');
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Daily Network Baseline Tracking
+const NETWORK_BASELINE_FILE = path.join(DATA_DIR, 'network_baselines.json');
+let networkBaselines = {};
+
+// Load existing baselines from disk
+if (fs.existsSync(NETWORK_BASELINE_FILE)) {
+    try {
+        networkBaselines = JSON.parse(fs.readFileSync(NETWORK_BASELINE_FILE, 'utf8'));
+    } catch (e) {
+        console.error('Failed to parse network baselines:', e);
+        networkBaselines = {};
+    }
+}
+
+// Function to save baselines immediately
+const saveNetworkBaselines = () => {
+    try {
+        fs.writeFileSync(NETWORK_BASELINE_FILE, JSON.stringify(networkBaselines, null, 2));
+    } catch (e) {
+        console.error('Failed to save network baselines:', e);
+    }
+};
+
+// Check for daily reset
+setInterval(() => {
+    const today = new Date().toLocaleDateString('tr-TR'); // Using a fixed locale for consistent date string
+    let changed = false;
+    for (const [id, baseline] of Object.entries(networkBaselines)) {
+        if (baseline.date !== today) {
+            // Wait for the next active stream chunk to reset it perfectly
+            delete networkBaselines[id];
+            changed = true;
+        }
+    }
+    if (changed) saveNetworkBaselines();
+}, 60000); // Check every minute
 
 // 1. List Stacks (Supports both single files and folders)
 app.get('/api/stacks', (req, res) => {
@@ -817,14 +860,36 @@ io.on('connection', (socket) => {
                                     const avgCpu = cpuSamples > 0 ? (cpuSum / cpuSamples) : normalizedCpuPercent;
 
                                     // Calculate Network I/O
-                                    let rxBytes = 0;
-                                    let txBytes = 0;
+                                    let rawRxBytes = 0;
+                                    let rawTxBytes = 0;
                                     if (stats.networks) {
                                         for (const [key, network] of Object.entries(stats.networks)) {
-                                            rxBytes += network.rx_bytes;
-                                            txBytes += network.tx_bytes;
+                                            rawRxBytes += network.rx_bytes;
+                                            rawTxBytes += network.tx_bytes;
                                         }
                                     }
+
+                                    // Handle Daily Network Baseline Logic
+                                    const todayDate = new Date().toLocaleDateString('tr-TR');
+                                    if (!networkBaselines[shortId] || networkBaselines[shortId].date !== todayDate) {
+                                        // If no baseline found for today, set the current cumulative value as 0 start point
+                                        networkBaselines[shortId] = {
+                                            rx: rawRxBytes,
+                                            tx: rawTxBytes,
+                                            date: todayDate
+                                        };
+                                        saveNetworkBaselines();
+                                    }
+
+                                    // Protect against container restarts resetting cumulative to 0 mid-day
+                                    if (rawRxBytes < networkBaselines[shortId].rx || rawTxBytes < networkBaselines[shortId].tx) {
+                                        networkBaselines[shortId].rx = rawRxBytes;
+                                        networkBaselines[shortId].tx = rawTxBytes;
+                                        saveNetworkBaselines();
+                                    }
+
+                                    const dailyRxBytes = Math.max(0, rawRxBytes - networkBaselines[shortId].rx);
+                                    const dailyTxBytes = Math.max(0, rawTxBytes - networkBaselines[shortId].tx);
 
                                     io.emit('stats:update', {
                                         id: shortId,
@@ -833,8 +898,8 @@ io.on('connection', (socket) => {
                                         ram: ramPercent.toFixed(1),
                                         ramUsedMB: bytesToMB(usedMemory || 0),
                                         ramTotalGB: (availableMemory / (1024 * 1024 * 1024)).toFixed(1),
-                                        netRxMB: bytesToMB(rxBytes),
-                                        netTxMB: bytesToMB(txBytes)
+                                        netRxMB: bytesToMB(dailyRxBytes),
+                                        netTxMB: bytesToMB(dailyTxBytes)
                                     });
 
                                     // Reset accumulators
