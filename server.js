@@ -886,15 +886,36 @@ app.get('/api/system/stats', async (req, res) => {
             si.time()
         ]);
 
-        // Aggregate physical disks (avoid veth, virtual devices)
-        const physicalDisks = fsSize.filter(d =>
-            d.fs.startsWith('/dev/sd') ||
-            d.fs.startsWith('/dev/nvme') ||
-            d.fs.startsWith('/dev/mmcblk') ||
-            d.fs.startsWith('/dev/disk') ||
-            // Fallback for macOS testing local
-            d.fs === '/dev/disk3s1s1'
-        );
+        // Aggregate physical disks
+        // Filter out docker virtual mounts, snap packages, and duplicates
+        const seenMounts = new Set();
+        const physicalDisks = fsSize.filter(d => {
+            // Must be a physical looking device
+            const isPhysical = d.fs.startsWith('/dev/sd') ||
+                d.fs.startsWith('/dev/nvme') ||
+                d.fs.startsWith('/dev/mmcblk') ||
+                d.fs.startsWith('/dev/disk') ||
+                d.fs.startsWith('/dev/mapper/') ||
+                d.fs === '/dev/root' ||
+                d.fs === '/dev/disk3s1s1'; // fallback
+
+            // Must NOT be an internal docker overlay or temporary mount
+            const isDockerPath = d.mount.includes('/var/lib/docker') ||
+                d.mount.includes('/app/') ||
+                d.mount.startsWith('/etc/');
+
+            // Must NOT be a snap or loop device mount
+            const isSnap = d.mount.startsWith('/snap/');
+            const isBoot = d.mount.startsWith('/boot');
+
+            if (isPhysical && !isDockerPath && !isSnap && !isBoot) {
+                if (!seenMounts.has(d.mount)) {
+                    seenMounts.add(d.mount);
+                    return true;
+                }
+            }
+            return false;
+        });
 
         let totalDisk = 0;
         let usedDisk = 0;
